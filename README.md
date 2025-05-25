@@ -27,7 +27,50 @@ A step by step series of examples that tell you how to get a development environ
 ## Running the tests
 
 1. Run the tests with `task test`
-2. Also you can proceed with the [OpenAPI](https://swagger.io/) docs by link `localhost:8888/swagger`
+2. Also you can proceed with the [OpenAPI](https://swagger.io/) docs by link `localhost:3000/swagger`
+
+## API Examples
+
+### Successful Request
+```bash
+curl -X POST http://localhost:3000/check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "card_number": "5167803252097675",
+    "expiration_month": "12",
+    "expiration_year": "2029"
+  }'
+```
+
+Response:
+```json
+{
+  "valid": true,
+  "error": null
+}
+```
+
+### Failed Request (Invalid Card Number)
+```bash
+curl -X POST http://localhost:3000/check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "card_number": "5167803252097676",
+    "expiration_month": "12",
+    "expiration_year": "2029"
+  }'
+```
+
+Response:
+```json
+{
+  "valid": false,
+  "error": {
+    "code": "001",
+    "message": "invalid card number"
+  }
+}
+```
 
 ## Deployment
 
