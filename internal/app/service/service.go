@@ -3,11 +3,11 @@ package service
 import "log/slog"
 
 type Services struct {
-	CardCheck
+	Cardcheck
 }
 
 func New(log *slog.Logger) *Services {
 	return &Services{
-		CardCheck{log: log},
+		Cardcheck{log: log},
 	}
 }

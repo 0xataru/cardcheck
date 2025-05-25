@@ -1,4 +1,4 @@
-module github.com/markraiter/cardcheck
+module cardcheck
 
 go 1.22.0
 

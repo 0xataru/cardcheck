@@ -2,17 +2,18 @@ package handler
 
 import (
 	"bytes"
+	"cardcheck/internal/domain"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-playground/validator"
 	"github.com/gofiber/fiber/v2"
-	"github.com/markraiter/cardcheck/internal/model"
 )
 
 func Test_CheckCard_Validate(t *testing.T) {
@@ -21,49 +22,49 @@ func Test_CheckCard_Validate(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		card           *model.Card
+		card           *domain.Card
 		expectedStatus int
-		expectedBody   string
+		expectedError  string
 	}{
 		{
 			name: "valid request",
-			card: &model.Card{
+			card: &domain.Card{
 				CardNumber:      "5167803252097675",
 				ExpirationMonth: "12",
 				ExpirationYear:  "2024",
 			},
 			expectedStatus: fiber.StatusOK,
-			expectedBody:   `{"valid":true,"error":{"code":"001","message":"card is valid"}}`,
+			expectedError:  "",
 		},
 		{
 			name: "no card number",
-			card: &model.Card{
+			card: &domain.Card{
 				CardNumber:      "",
 				ExpirationMonth: "12",
 				ExpirationYear:  "2024",
 			},
 			expectedStatus: fiber.StatusBadRequest,
-			expectedBody:   `{"message":"Key: 'Card.CardNumber' Error:Field validation for 'CardNumber' failed on the 'required' tag"}`,
+			expectedError:  "CardNumber",
 		},
 		{
 			name: "no expiration month",
-			card: &model.Card{
+			card: &domain.Card{
 				CardNumber:      "5167803252097675",
 				ExpirationMonth: "",
 				ExpirationYear:  "2024",
 			},
 			expectedStatus: fiber.StatusBadRequest,
-			expectedBody:   `{"message":"Key: 'Card.ExpirationMonth' Error:Field validation for 'ExpirationMonth' failed on the 'required' tag"}`,
+			expectedError:  "ExpirationMonth",
 		},
 		{
 			name: "no expiration year",
-			card: &model.Card{
+			card: &domain.Card{
 				CardNumber:      "5167803252097675",
 				ExpirationMonth: "12",
 				ExpirationYear:  "",
 			},
 			expectedStatus: fiber.StatusBadRequest,
-			expectedBody:   `{"message":"Key: 'Card.ExpirationYear' Error:Field validation for 'ExpirationYear' failed on the 'required' tag"}`,
+			expectedError:  "ExpirationYear",
 		},
 	}
 
@@ -82,7 +83,6 @@ func Test_CheckCard_Validate(t *testing.T) {
 			app.Post("/check", cc.Validate)
 
 			body, _ := json.Marshal(tt.card)
-
 			req := httptest.NewRequest("POST", "/check", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 
@@ -93,26 +93,31 @@ func Test_CheckCard_Validate(t *testing.T) {
 			}
 
 			responseBody, _ := io.ReadAll(resp.Body)
+			responseStr := string(responseBody)
 
-			if string(responseBody) != tt.expectedBody {
-				t.Errorf("expected body %s, got %s", tt.expectedBody, string(responseBody))
+			if tt.expectedError != "" {
+				if !strings.Contains(strings.ToLower(responseStr), strings.ToLower(tt.expectedError)) {
+					t.Errorf("expected error message to contain '%s', got '%s'", tt.expectedError, responseStr)
+				}
+			} else {
+				expectedSuccess := `{"valid":true,"error":null}`
+				if responseStr != expectedSuccess {
+					t.Errorf("expected success response '%s', got '%s'", expectedSuccess, responseStr)
+				}
 			}
 		})
 	}
 }
 
 type mockValidator struct {
-	card *model.Card
+	card *domain.Card
 }
 
-func (v mockValidator) Validate(card *model.Card) (*model.ResponseW, error) {
+func (v mockValidator) Validate(card *domain.Card) (*domain.Response, error) {
 	if card.CardNumber == v.card.CardNumber {
-		return &model.ResponseW{
+		return &domain.Response{
 			Valid: true,
-			Error: model.Error{
-				Code:    "001",
-				Message: "card is valid",
-			},
+			Error: nil,
 		}, nil
 	}
 

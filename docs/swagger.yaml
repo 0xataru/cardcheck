@@ -1,9 +1,9 @@
-basePath: /api
+basePath: /
 definitions:
-  model.Card:
+  domain.Card:
     properties:
       card_number:
-        example: "1234567890123456"
+        example: "5167803252097675"
         type: string
       expiration_month:
         example: "12"
@@ -16,33 +16,41 @@ definitions:
     - expiration_month
     - expiration_year
     type: object
-  model.Error:
+  domain.Error:
     properties:
       code:
+        allOf:
+        - $ref: '#/definitions/domain.ErrorCode'
         example: "001"
-        type: string
       message:
         example: error message
         type: string
     type: object
-  model.ResponseMessage:
+  domain.ErrorCode:
+    enum:
+    - "001"
+    - "002"
+    type: string
+    x-enum-varnames:
+    - InvalidCardNumber
+    - InvalidExpirationDate
+  domain.Response:
+    properties:
+      error:
+        $ref: '#/definitions/domain.Error'
+      valid:
+        example: true
+        type: boolean
+    type: object
+  domain.ResponseMessage:
     properties:
       message:
         example: response message
         type: string
     type: object
-  model.ResponseW:
-    properties:
-      error:
-        $ref: '#/definitions/model.Error'
-      valid:
-        example: true
-        type: boolean
-    type: object
-host: localhost:8888
+host: localhost:3000
 info:
   contact:
-    email: raitermark@proton.me
     name: Mark Raiter
   description: This is an API for validating credit cards.
   title: Cardcheck API
@@ -60,38 +68,25 @@ paths:
         name: card
         required: true
         schema:
-          $ref: '#/definitions/model.Card'
+          $ref: '#/definitions/domain.Card'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.ResponseW'
+            $ref: '#/definitions/domain.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/model.ResponseMessage'
+            $ref: '#/definitions/domain.ResponseMessage'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/model.ResponseMessage'
+            $ref: '#/definitions/domain.ResponseMessage'
       summary: Validate card
       tags:
       - check
-  /health:
-    get:
-      consumes:
-      - '*/*'
-      description: Ping health of API for Docker.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.ResponseMessage'
-      summary: Shows the status of server.
-      tags:
-      - Health
+schemes:
+- http
 swagger: "2.0"

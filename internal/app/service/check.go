@@ -6,57 +6,53 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/markraiter/cardcheck/internal/model"
+	"cardcheck/internal/domain"
 )
 
-type CardCheck struct {
+type Cardcheck struct {
 	log *slog.Logger
 }
 
-func (cc *CardCheck) Validate(card *model.Card) (*model.ResponseW, error) {
-	const operation = "service.CardCheck.Validate"
-
-	log := cc.log.With(slog.String("operation", operation))
-
+func (cc *Cardcheck) Validate(card *domain.Card) (*domain.Response, error) {
+	const op = "service.Cardcheck.Validate"
+	log := cc.log.With(slog.String("operation", op))
 	log.Info("attempting to validate card")
 
-	response := model.ResponseW{
+	response := domain.Response{
 		Valid: true,
-		Error: model.Error{
-			Code:    "001",
-			Message: "card is valid",
-		},
+		Error: nil,
 	}
 
 	expMonth, err := strconv.Atoi(card.ExpirationMonth)
 	if err != nil {
-		log.Error("invalid expiration month")
-
-		return nil, fmt.Errorf("%s: %w", operation, err)
+		log.Warn("invalid expiration month")
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	expYear, err := strconv.Atoi(card.ExpirationYear)
 	if err != nil {
-		log.Error("invalid expiration year")
-
-		return nil, fmt.Errorf("%s: %w", operation, err)
+		log.Warn("invalid expiration year")
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if !isValidCardNumber(card.CardNumber) {
-		log.Error("invalid card number")
-
+		log.Warn("invalid card number")
 		response.Valid = false
-		response.Error = model.Error{Code: "002", Message: "invalid card number"}
-
+		response.Error = &domain.Error{
+			Code:    domain.InvalidCardNumber,
+			Message: "invalid card number",
+		}
 		return &response, nil
 	}
 
 	if !isValidExpirationDate(expMonth, expYear) {
-		log.Error("invalid expiration date")
+		log.Warn("invalid expiration date")
 
 		response.Valid = false
-		response.Error = model.Error{Code: "003", Message: "invalid expiration date"}
-
+		response.Error = &domain.Error{
+			Code:    domain.InvalidExpirationDate,
+			Message: "invalid expiration date",
+		}
 		return &response, nil
 	}
 
@@ -66,9 +62,22 @@ func (cc *CardCheck) Validate(card *model.Card) (*model.ResponseW, error) {
 }
 
 func isValidCardNumber(cardNumber string) bool {
-	if _, err := strconv.Atoi(cardNumber); err != nil || len(cardNumber) < 12 || len(cardNumber) > 19 {
+	// Check length first as it's the fastest check
+	if len(cardNumber) < 12 || len(cardNumber) > 19 {
 		return false
 	}
+
+	// Check if all characters are digits
+	if _, err := strconv.Atoi(cardNumber); err != nil {
+		return false
+	}
+
+	// Luhn algorithm:
+	//
+	//validates card numbers by checking if the sum of digits
+	// (with special doubling) is divisible by 10
+	//
+	// https://en.wikipedia.org/wiki/Luhn_algorithm
 
 	sum := 0
 	isSecondDigit := false
@@ -78,7 +87,6 @@ func isValidCardNumber(cardNumber string) bool {
 
 		if isSecondDigit {
 			digit *= 2
-
 			if digit > 9 {
 				digit -= 9
 			}
@@ -94,7 +102,18 @@ func isValidCardNumber(cardNumber string) bool {
 func isValidExpirationDate(expirationMonth, expirationYear int) bool {
 	currentYear, currentMonth, _ := time.Now().Date()
 
-	if expirationYear < int(currentYear) || expirationYear == int(currentYear) && expirationMonth < int(currentMonth) || expirationMonth > 12 {
+	// Check if month is valid (1-12)
+	if expirationMonth < 1 || expirationMonth > 12 {
+		return false
+	}
+
+	// Check if year is in the past
+	if expirationYear < int(currentYear) {
+		return false
+	}
+
+	// Check if current month is past expiration month in current year
+	if expirationYear == int(currentYear) && expirationMonth < int(currentMonth) {
 		return false
 	}
 

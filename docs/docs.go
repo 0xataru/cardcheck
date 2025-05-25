@@ -10,8 +10,7 @@ const docTemplate = `{
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
         "contact": {
-            "name": "Mark Raiter",
-            "email": "raitermark@proton.me"
+            "name": "Mark Raiter"
         },
         "version": "{{.Version}}"
     },
@@ -38,7 +37,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Card"
+                            "$ref": "#/definitions/domain.Card"
                         }
                     }
                 ],
@@ -46,42 +45,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.ResponseW"
+                            "$ref": "#/definitions/domain.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/model.ResponseMessage"
+                            "$ref": "#/definitions/domain.ResponseMessage"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/model.ResponseMessage"
-                        }
-                    }
-                }
-            }
-        },
-        "/health": {
-            "get": {
-                "description": "Ping health of API for Docker.",
-                "consumes": [
-                    "*/*"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "Shows the status of server.",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/model.ResponseMessage"
+                            "$ref": "#/definitions/domain.ResponseMessage"
                         }
                     }
                 }
@@ -89,7 +65,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "model.Card": {
+        "domain.Card": {
             "type": "object",
             "required": [
                 "card_number",
@@ -99,7 +75,7 @@ const docTemplate = `{
             "properties": {
                 "card_number": {
                     "type": "string",
-                    "example": "1234567890123456"
+                    "example": "5167803252097675"
                 },
                 "expiration_month": {
                     "type": "string",
@@ -111,11 +87,15 @@ const docTemplate = `{
                 }
             }
         },
-        "model.Error": {
+        "domain.Error": {
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "string",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.ErrorCode"
+                        }
+                    ],
                     "example": "001"
                 },
                 "message": {
@@ -124,24 +104,35 @@ const docTemplate = `{
                 }
             }
         },
-        "model.ResponseMessage": {
+        "domain.ErrorCode": {
+            "type": "string",
+            "enum": [
+                "001",
+                "002"
+            ],
+            "x-enum-varnames": [
+                "InvalidCardNumber",
+                "InvalidExpirationDate"
+            ]
+        },
+        "domain.Response": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/domain.Error"
+                },
+                "valid": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "domain.ResponseMessage": {
             "type": "object",
             "properties": {
                 "message": {
                     "type": "string",
                     "example": "response message"
-                }
-            }
-        },
-        "model.ResponseW": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "$ref": "#/definitions/model.Error"
-                },
-                "valid": {
-                    "type": "boolean",
-                    "example": true
                 }
             }
         }
@@ -151,9 +142,9 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8888",
-	BasePath:         "/api",
-	Schemes:          []string{},
+	Host:             "localhost:3000",
+	BasePath:         "/",
+	Schemes:          []string{"http"},
 	Title:            "Cardcheck API",
 	Description:      "This is an API for validating credit cards.",
 	InfoInstanceName: "swagger",

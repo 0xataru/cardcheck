@@ -1,4 +1,4 @@
-package model
+package domain
 
 type Card struct {
 	CardNumber      string `json:"card_number" validate:"required" example:"5167803252097675"`

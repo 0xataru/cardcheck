@@ -1,85 +1,121 @@
 package service
 
 import (
+	"cardcheck/internal/domain"
 	"log/slog"
 	"os"
 	"testing"
-
-	"github.com/markraiter/cardcheck/internal/model"
 )
 
 func Test_Validate(t *testing.T) {
-	cc := &CardCheck{
+	cc := &Cardcheck{
 		log: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	}
 
 	tests := []struct {
 		name      string
-		card      *model.Card
-		errorCode string
+		card      *domain.Card
+		wantValid bool
+		wantErr   *domain.Error
 	}{
 		{
 			name: "valid card",
-			card: &model.Card{
+			card: &domain.Card{
 				CardNumber:      "5167803252097675",
 				ExpirationMonth: "12",
-				ExpirationYear:  "2024",
+				ExpirationYear:  "2029",
 			},
-			errorCode: "001",
+			wantValid: true,
+			wantErr:   nil,
 		},
 		{
-			name: "invalid card number",
-			card: &model.Card{
+			name: "invalid card number - too short",
+			card: &domain.Card{
 				CardNumber:      "1234",
 				ExpirationMonth: "12",
 				ExpirationYear:  "2024",
 			},
-			errorCode: "002",
+			wantValid: false,
+			wantErr: &domain.Error{
+				Code:    domain.InvalidCardNumber,
+				Message: "invalid card number",
+			},
 		},
 		{
-			name: "invalid card number 2",
-			card: &model.Card{
+			name: "invalid card number - fails Luhn check",
+			card: &domain.Card{
 				CardNumber:      "5457626723237072",
 				ExpirationMonth: "12",
 				ExpirationYear:  "2024",
 			},
-			errorCode: "002",
+			wantValid: false,
+			wantErr: &domain.Error{
+				Code:    domain.InvalidCardNumber,
+				Message: "invalid card number",
+			},
 		},
 		{
-			name: "invalid expiration month",
-			card: &model.Card{
+			name: "invalid expiration month - too short",
+			card: &domain.Card{
 				CardNumber:      "5167803252097675",
 				ExpirationMonth: "1",
 				ExpirationYear:  "2024",
 			},
-			errorCode: "003",
+			wantValid: false,
+			wantErr: &domain.Error{
+				Code:    domain.InvalidExpirationDate,
+				Message: "invalid expiration date",
+			},
 		},
 		{
-			name: "invalid expiration month > 12",
-			card: &model.Card{
+			name: "invalid expiration month - too large",
+			card: &domain.Card{
 				CardNumber:      "5167803252097675",
 				ExpirationMonth: "13",
 				ExpirationYear:  "2024",
 			},
-			errorCode: "003",
+			wantValid: false,
+			wantErr: &domain.Error{
+				Code:    domain.InvalidExpirationDate,
+				Message: "invalid expiration date",
+			},
 		},
 		{
-			name: "invalid expiration year",
-			card: &model.Card{
+			name: "invalid expiration year - in the past",
+			card: &domain.Card{
 				CardNumber:      "5167803252097675",
 				ExpirationMonth: "12",
 				ExpirationYear:  "2020",
 			},
-			errorCode: "003",
+			wantValid: false,
+			wantErr: &domain.Error{
+				Code:    domain.InvalidExpirationDate,
+				Message: "invalid expiration date",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, _ := cc.Validate(tt.card)
+			result, err := cc.Validate(tt.card)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
-			if result.Error.Code != tt.errorCode {
-				t.Errorf("expected error code %s, got %s", tt.errorCode, result.Error.Code)
+			if result.Valid != tt.wantValid {
+				t.Errorf("valid = %v, want %v", result.Valid, tt.wantValid)
+			}
+
+			if tt.wantErr == nil {
+				if result.Error != nil {
+					t.Errorf("error = %v, want nil", result.Error)
+				}
+			} else {
+				if result.Error == nil {
+					t.Errorf("error = nil, want %v", tt.wantErr)
+				} else if result.Error.Code != tt.wantErr.Code {
+					t.Errorf("error code = %s, want %s", result.Error.Code, tt.wantErr.Code)
+				}
 			}
 		})
 	}
